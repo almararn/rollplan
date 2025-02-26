@@ -195,7 +195,8 @@ class HallScreen extends StatelessWidget {
   final String hallName;
   final Map<String, Map<String, dynamic>> machineData;
 
-  HallScreen({required this.hallName, required this.machineData});
+  const HallScreen(
+      {super.key, required this.hallName, required this.machineData});
 
   List<String> _generateMachineNumbers(String hallName) {
     List<String> machines = [];
@@ -204,7 +205,7 @@ class HallScreen extends StatelessWidget {
         machines.add('M$i');
       }
     } else {
-      for (int i = 933; i <= 962; i++) {
+      for (int i = 933; i <= 963; i++) {
         machines.add('M$i');
       }
     }
@@ -216,57 +217,171 @@ class HallScreen extends StatelessWidget {
     final machineNumbers = _generateMachineNumbers(hallName);
     return Scaffold(
       appBar: AppBar(title: Text(hallName)),
-      body: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: hallName == 'North' ? 8 : 8,
-          childAspectRatio: 16 / 9,
-        ),
-        itemCount: machineNumbers.length,
-        itemBuilder: (context, index) {
-          final machineNumber = machineNumbers[index];
-          final machineInfo = machineData[machineNumber];
-          final currentRoll = machineInfo?['current'] as ProductionRoll?;
-          final plannedRoll = machineInfo?['planned'] as ProductionRoll?;
-          final noRollsPlanned =
-              machineInfo?['noRollsPlanned'] as bool? ?? false;
-          Color machineColor;
+      body: Column(
+        children: [
+          Flexible(
+            child: GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: hallName == 'North' ? 8 : 8,
+                childAspectRatio: 12 / 9,
+              ),
+              itemCount: machineNumbers.length,
+              itemBuilder: (context, index) {
+                final machineNumber = machineNumbers[index];
+                final machineInfo = machineData[machineNumber];
+                final currentRoll = machineInfo?['current'] as ProductionRoll?;
+                final plannedRoll = machineInfo?['planned'] as ProductionRoll?;
+                final noRollsPlanned =
+                    machineInfo?['noRollsPlanned'] as bool? ?? false;
+                Color machineColor;
 
-          if (noRollsPlanned || (currentRoll == null && plannedRoll == null)) {
-            machineColor = Colors.grey; // Gray for no rolls planned or off
-          } else if (currentRoll != null && plannedRoll == null) {
-            machineColor = Colors.yellow; // Yellow for working, no planned
-          } else {
-            machineColor = areRollsSame(currentRoll, plannedRoll)
-                ? Colors.green
-                : Colors.red; // Green/Red for working with planned
-          }
+                if (noRollsPlanned || currentRoll == null) {
+                  machineColor = Colors.grey;
+                } else {
+                  machineColor = Colors.green;
+                }
 
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MachineDetailsPage(
-                    machineNumber: machineNumber,
-                    currentRoll: currentRoll,
-                    plannedRoll: plannedRoll,
-                    noRollsPlanned: noRollsPlanned,
+                return Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MachineDetailsPage(
+                              machineNumber: machineNumber,
+                              currentRoll: currentRoll,
+                              plannedRoll: plannedRoll,
+                              noRollsPlanned: noRollsPlanned,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        margin: EdgeInsets.all(4.0),
+                        color: machineColor,
+                        child: Center(
+                          child: Text(
+                            machineNumber,
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (currentRoll != null && plannedRoll == null)
+                      Positioned(
+                        top: 8.0,
+                        right: 8.0,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 6.0, vertical: 2.0),
+                          decoration: BoxDecoration(
+                            color: Colors.yellow,
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Icon(
+                            Icons.warning_amber_outlined,
+                            color: Colors.black,
+                            size: 16.0,
+                          ),
+                        ),
+                      ),
+                    if (currentRoll != null &&
+                        plannedRoll != null &&
+                        !areRollsSame(currentRoll, plannedRoll))
+                      Positioned(
+                        top: 8.0,
+                        right: 8.0,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 6.0, vertical: 2.0),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Icon(
+                            Icons.error_outline,
+                            color: Colors.white,
+                            size: 16.0,
+                          ),
+                        ),
+                      ),
+                    if (currentRoll == null && plannedRoll != null)
+                      Positioned(
+                        top: 8.0,
+                        right: 8.0,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 6.0, vertical: 2.0),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Icon(
+                            Icons.stop_circle_outlined,
+                            color: Colors.white,
+                            size: 16.0,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                  decoration: BoxDecoration(
+                    color: Colors.yellow,
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_outlined,
+                    color: Colors.black,
+                    size: 16.0,
                   ),
                 ),
-              );
-            },
-            child: Container(
-              margin: EdgeInsets.all(4.0),
-              color: machineColor,
-              child: Center(
-                child: Text(
-                  machineNumber,
-                  style: TextStyle(color: Colors.white),
+                SizedBox(width: 8.0),
+                Text('No plan after current roll'),
+                SizedBox(width: 16.0),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: Icon(
+                    Icons.error_outline,
+                    color: Colors.white,
+                    size: 16.0,
+                  ),
                 ),
-              ),
+                SizedBox(width: 8.0),
+                Text('Working change after current roll'),
+                SizedBox(width: 16.0),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: Icon(
+                    Icons.stop_circle_outlined,
+                    color: Colors.white,
+                    size: 16.0,
+                  ),
+                ),
+                SizedBox(width: 8.0),
+                Text('Not producing, but has planned rolls'),
+              ],
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
