@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as parser;
+import 'package:intl/intl.dart';
 
 class ProductionRoll {
   final String machine;
@@ -106,39 +107,58 @@ bool areRollsSame(ProductionRoll? current, ProductionRoll? planned) {
 }
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  HomeScreenState createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   bool _dataLoaded = false;
-  Map<String, Map<String, dynamic>> _machineData = {}; // Corrected type
+  Map<String, Map<String, dynamic>> _machineData = {};
   final String _dataUrl = 'https://hrollur.com/data/scrape.html';
+  String _fetchTime = '';
+  String _dataInfo = '';
 
   Future<void> _fetchData() async {
     setState(() {
       _isLoading = true;
+      _fetchTime = '';
+      _dataInfo = '';
     });
 
+    final startTime = DateTime.now();
     final scrapedData = await scrapeTableData(_dataUrl);
+    final endTime = DateTime.now();
 
     if (scrapedData['error'] == false) {
       final rawData = scrapedData['data'] as List<Map<String, dynamic>>;
       _machineData = processMachineData(rawData);
-      setState(() {
-        _isLoading = false;
-        _dataLoaded = true;
-      });
+      if (mounted) {
+        // Check if the widget is still in the tree
+        setState(() {
+          _isLoading = false;
+          _dataLoaded = true;
+          _fetchTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(endTime);
+          _dataInfo =
+              'Data fetched successfully in ${endTime.difference(startTime).inMilliseconds}ms';
+        });
+      }
     } else {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text('Failed to fetch data: ${scrapedData['errorMessage']}')),
-      );
+      if (mounted) {
+        // Check if the widget is still in the tree
+        setState(() {
+          _isLoading = false;
+          _fetchTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(endTime);
+          _dataInfo = 'Failed to fetch data: ${scrapedData['errorMessage']}';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Failed to fetch data: ${scrapedData['errorMessage']}')),
+        );
+      }
     }
   }
 
@@ -152,10 +172,35 @@ class _HomeScreenState extends State<HomeScreen> {
           children: <Widget>[
             ElevatedButton(
               onPressed: _isLoading ? null : _fetchData,
-              child:
-                  _isLoading ? CircularProgressIndicator() : Text('Fetch Data'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _dataLoaded ? Colors.green : Colors.yellow,
+                foregroundColor: Colors.black,
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                textStyle: TextStyle(fontSize: 18),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: _isLoading
+                  ? CircularProgressIndicator(color: Colors.black)
+                  : Text('Fetch Data'),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 10),
+            SizedBox(
+              height: 20,
+              child: _fetchTime.isNotEmpty
+                  ? Text(
+                      'Fetch Time: $_fetchTime',
+                      style: TextStyle(color: Colors.grey),
+                    )
+                  : SizedBox.shrink(),
+            ),
+            SizedBox(
+              height: 20,
+              child: _dataInfo.isNotEmpty
+                  ? Text(_dataInfo, style: TextStyle(color: Colors.grey))
+                  : SizedBox.shrink(),
+            ),
+            SizedBox(height: 60),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
@@ -168,6 +213,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   hallName: 'North',
                                   machineData: _machineData)))
                       : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue), // Blue tint
                   child: Text('North'),
                 ),
                 SizedBox(width: 20),
@@ -180,7 +227,117 @@ class _HomeScreenState extends State<HomeScreen> {
                                   hallName: 'South',
                                   machineData: _machineData)))
                       : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red), // Red tint
                   child: Text('South'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: _dataLoaded
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => HallScreen(
+                                  hallName: 'Show All',
+                                  machineData: _machineData)))
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green), // Green tint
+                  child: Text('Show All'),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                ElevatedButton(
+                  onPressed: _dataLoaded
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => HallScreen(
+                                  hallName: 'Station 1 North',
+                                  machineData: _machineData)))
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue), // Blue tint
+                  child: Text('Station 1 North'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: _dataLoaded
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => HallScreen(
+                                  hallName: 'Station 2 North',
+                                  machineData: _machineData)))
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue), // Blue tint
+                  child: Text('Station 2 North'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: _dataLoaded
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => HallScreen(
+                                  hallName: 'Station 3 North',
+                                  machineData: _machineData)))
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue), // Blue tint
+                  child: Text('Station 3 North'),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                ElevatedButton(
+                  onPressed: _dataLoaded
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => HallScreen(
+                                  hallName: 'Station 1 South',
+                                  machineData: _machineData)))
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red), // Red tint
+                  child: Text('Station 1 South'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: _dataLoaded
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => HallScreen(
+                                  hallName: 'Station 2 South',
+                                  machineData: _machineData)))
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red), // Red tint
+                  child: Text('Station 2 South'),
+                ),
+                SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: _dataLoaded
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => HallScreen(
+                                  hallName: 'Station 3 South',
+                                  machineData: _machineData)))
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red), // Red tint
+                  child: Text('Station 3 South'),
                 ),
               ],
             ),
@@ -200,14 +357,58 @@ class HallScreen extends StatelessWidget {
 
   List<String> _generateMachineNumbers(String hallName) {
     List<String> machines = [];
-    if (hallName == 'North') {
-      for (int i = 901; i <= 932; i++) {
-        machines.add('M$i');
-      }
-    } else {
-      for (int i = 933; i <= 963; i++) {
-        machines.add('M$i');
-      }
+    switch (hallName) {
+      case 'North':
+        for (int i = 901; i <= 932; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'South':
+        for (int i = 933; i <= 963; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'Show All':
+        for (int i = 901; i <= 963; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'Station 1 North':
+        for (int i = 901; i <= 911; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'Station 2 North':
+        for (int i = 917; i <= 927; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'Station 3 North':
+        for (int i = 912; i <= 916; i++) {
+          machines.add('M$i');
+        }
+        for (int i = 928; i <= 932; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'Station 1 South':
+        for (int i = 938; i <= 947; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'Station 2 South':
+        for (int i = 953; i <= 963; i++) {
+          machines.add('M$i');
+        }
+        break;
+      case 'Station 3 South':
+        for (int i = 933; i <= 937; i++) {
+          machines.add('M$i');
+        }
+        for (int i = 948; i <= 952; i++) {
+          machines.add('M$i');
+        }
+        break;
     }
     return machines;
   }
@@ -393,7 +594,8 @@ class MachineDetailsPage extends StatelessWidget {
   final ProductionRoll? plannedRoll;
   final bool noRollsPlanned;
 
-  MachineDetailsPage({
+  const MachineDetailsPage({
+    super.key,
     required this.machineNumber,
     required this.currentRoll,
     required this.plannedRoll,
@@ -544,6 +746,8 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
