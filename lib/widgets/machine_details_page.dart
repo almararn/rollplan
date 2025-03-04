@@ -1,7 +1,8 @@
-// lib/widgets/machine_details_page.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/production_roll.dart';
-import '../services/data_service.dart';
+import 'insert_checklist.dart';
+import 'roll_card.dart';
 
 class MachineDetailsPage extends StatelessWidget {
   final String machineNumber;
@@ -33,7 +34,7 @@ class MachineDetailsPage extends StatelessWidget {
                 const Text('Current Roll:',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 if (currentRoll != null)
-                  _buildRollCard(context, currentRoll!, null)
+                  RollCard(roll: currentRoll!, previousRoll: null)
                 else
                   const Text('No current roll data.'),
                 const SizedBox(height: 20),
@@ -56,146 +57,6 @@ class MachineDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildRollCard(
-      BuildContext context, ProductionRoll roll, ProductionRoll? previousRoll) {
-    Color leftBorderColor = Colors.grey;
-    String finalProdChange = '';
-    String speedCChange = '';
-
-    if (previousRoll != null) {
-      leftBorderColor =
-          areRollsSame(previousRoll, roll) ? Colors.green : Colors.red;
-
-      try {
-        double currentVF = double.parse(
-            roll.finalProd.split('/').last.replaceAll(RegExp(r'[^0-9.]'), ''));
-        double previousVF = double.parse(previousRoll.finalProd
-            .split('/')
-            .last
-            .replaceAll(RegExp(r'[^0-9.]'), ''));
-        double vfDiff = currentVF - previousVF;
-        if (vfDiff != 0) {
-          finalProdChange =
-              '(${vfDiff > 0 ? '+' : ''}${vfDiff.toStringAsFixed(1)} V)';
-        }
-
-        int currentSpeedC = int.parse(roll.speedC);
-        int previousSpeedC = int.parse(previousRoll.speedC);
-        int speedDiff = currentSpeedC - previousSpeedC;
-        if (speedDiff != 0) {
-          speedCChange = '(${speedDiff > 0 ? '+' : ''}$speedDiff cm/min)';
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Error parsing VF or SpeedC'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: ClipPath(
-        clipper: ShapeBorderClipper(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: leftBorderColor, width: 8),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Roll Number: ${roll.rollNumber}'),
-                Text('Status: ${roll.status}'),
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(color: Colors.black),
-                    children: <TextSpan>[
-                      TextSpan(
-                        text: 'Final Product: ${roll.finalProd} ',
-                      ),
-                      if (finalProdChange.isNotEmpty) // Add condition here
-                        TextSpan(
-                          children: [
-                            WidgetSpan(
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                decoration: BoxDecoration(
-                                  // Add BoxDecoration to round corners
-                                  color: Colors.red,
-                                  borderRadius:
-                                      BorderRadius.circular(4), // Round corners
-                                ),
-                                child: Text(
-                                  finalProdChange,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      height: 1.2),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(color: Colors.black),
-                    children: <TextSpan>[
-                      TextSpan(
-                        text: 'Speed: ${roll.speedC} cm/min ',
-                      ),
-                      if (speedCChange.isNotEmpty) // Add condition here
-                        TextSpan(
-                          children: [
-                            WidgetSpan(
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                decoration: BoxDecoration(
-                                  // Add BoxDecoration to round corners
-                                  color: Colors.red,
-                                  borderRadius:
-                                      BorderRadius.circular(4), // Round corners
-                                ),
-                                child: Text(
-                                  speedCChange,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   List<Widget> _buildPlannedRollCards(BuildContext context,
       List<ProductionRoll> rolls, ProductionRoll? currentRoll) {
     List<Widget> cards = [];
@@ -207,8 +68,75 @@ class MachineDetailsPage extends StatelessWidget {
       } else if (i > 0) {
         previousRoll = rolls[i - 1];
       }
-      cards.add(_buildRollCard(context, rolls[i], previousRoll));
+      bool isHovered = false;
+      cards.add(
+        StatefulBuilder(
+          builder: (context, setState) {
+            return InkWell(
+              onTap: () => _showInsertChecklistModal(
+                  context, rolls[i], currentRoll), // Pass rolls
+              onHover: (hovered) => setState(() => isHovered = hovered),
+              overlayColor: MaterialStateProperty.all(Colors.transparent),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
+                transform: isHovered
+                    ? Matrix4.identity().scaled(1.03)
+                    : Matrix4.identity(),
+                child: RollCard(roll: rolls[i], previousRoll: previousRoll),
+              ),
+            );
+          },
+        ),
+      );
     }
     return cards;
+  }
+
+  void _showInsertChecklistModal(BuildContext context, ProductionRoll nextRoll,
+      ProductionRoll? currentRoll) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Roll Insert Checklist',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: InsertChecklist(
+                    currentRoll: currentRoll, nextRoll: nextRoll), // Pass rolls
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                      'Timestamp: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}'),
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton(
+              child: const Text('Insert'),
+              onPressed: () {
+                // Implement insert logic here, e.g., get checked items
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }
