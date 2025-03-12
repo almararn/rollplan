@@ -1,9 +1,10 @@
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:html/parser.dart' as parser;
 import '../models/production_roll.dart';
 
 Future<Map<String, dynamic>> scrapeTableData(String url) async {
   try {
+    final dio = Dio();
     final headers = {
       'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -16,10 +17,10 @@ Future<Map<String, dynamic>> scrapeTableData(String url) async {
       'Cache-Control': 'max-age=0',
     };
 
-    final response = await http.get(Uri.parse(url), headers: headers);
+    final response = await dio.get(url, options: Options(headers: headers));
 
     if (response.statusCode == 200) {
-      final document = parser.parse(response.body);
+      final document = parser.parse(response.data);
       final tables = document.querySelectorAll('table.table');
       if (tables.isNotEmpty) {
         final table = tables.first;
@@ -70,14 +71,14 @@ Future<Map<String, dynamic>> scrapeTableData(String url) async {
         }
         return {
           'data': allMachineData,
-          'rawHtml': response.body,
+          'rawHtml': response.data,
           'error': false,
           'errorMessage': null
         };
       } else {
         return {
           'data': [],
-          'rawHtml': response.body,
+          'rawHtml': response.data,
           'error': true,
           'errorMessage': "No tables found"
         };

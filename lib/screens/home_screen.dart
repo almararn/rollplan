@@ -15,6 +15,7 @@ class HomeScreenState extends State<HomeScreen> {
   bool _dataLoaded = false;
   Map<String, Map<String, dynamic>> _machineData = {};
   final String _dataUrl = 'https://hrollur.com/data/scrape.html';
+//  final String _dataUrl = 'http://svakvm0014.tdk-electronics.biz/planning/index.php?Page=scheduling&SubPage=by-machine';
   String _fetchTime = '';
   String _dataInfo = '';
 

@@ -27,10 +27,15 @@ class InsertChecklistState extends State<InsertChecklist> {
 
   List<String> _generateChecklist() {
     List<String> items = [];
+
+    items.add(
+      'Confirm the roll number is correct: ${widget.nextRoll.rollNumber}',
+    );
+
     if (widget.currentRoll != null) {
       if (areRollsSame(widget.currentRoll!, widget.nextRoll)) {
         items.add(
-            'Confirm this roll is the same as the previous VIP roll and requires no changes');
+            'This roll is the same as the previous VIP roll and requires no changes');
       } else {
         double currentVF = double.parse(widget.nextRoll.finalProd
             .split('/')
@@ -58,7 +63,6 @@ class InsertChecklistState extends State<InsertChecklist> {
       items.add('Confirm first roll parameters');
     }
 
-    // Add static checklist items
     items.addAll([
       'The alignment in the machine is okay?',
       'The roll is undamaged?',
@@ -82,7 +86,7 @@ class InsertChecklistState extends State<InsertChecklist> {
               title: RichText(
                 text: TextSpan(
                   style: const TextStyle(color: Colors.black),
-                  children: _buildRichText(checklistItems[index]),
+                  children: _buildRichText(checklistItems[index], index == 0),
                 ),
               ),
               value: checkedItems[index],
@@ -135,11 +139,23 @@ class InsertChecklistState extends State<InsertChecklist> {
     );
   }
 
-  List<TextSpan> _buildRichText(String text) {
+  List<TextSpan> _buildRichText(String text, bool isFirst) {
     RegExp exp = RegExp(r'([+-]?\d+\.?\d* V)|([+-]?\d+ cm/min)');
     Iterable<RegExpMatch> matches = exp.allMatches(text);
     List<TextSpan> spans = [];
     int currentIndex = 0;
+
+    if (isFirst) {
+      List<String> parts = text.split(': ');
+      if (parts.length == 2) {
+        spans.add(TextSpan(text: '${parts[0]}: '));
+        spans.add(TextSpan(
+            text: parts[1], style: TextStyle(fontWeight: FontWeight.bold)));
+      } else {
+        spans.add(TextSpan(text: text));
+      }
+      return spans;
+    }
 
     for (RegExpMatch match in matches) {
       if (match.start > currentIndex) {
