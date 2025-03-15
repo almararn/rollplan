@@ -61,4 +61,50 @@ class ProductionRoll {
       notes: json['Notes'] ?? '',
     );
   }
+
+  factory ProductionRoll.fromMap(Map<String, dynamic> map) {
+    return ProductionRoll(
+      machine: map['Machine'] ?? '',
+      rollNumber: map['Roll Number'] ?? '',
+      status: map['Status'] ?? '',
+      sqm: map['Sqm'] ?? '',
+      width: map['Width'] ?? '',
+      etchedProd: map['EtchedProd.'] ?? '',
+      finalProd: map['FinalProd.'] ?? '',
+      startTime: map['StartTime'] ?? '',
+      endTime: map['EndTime'] ?? '',
+      customer: map['Customer'] ?? '',
+      order: map['Order'] ?? '',
+      location: map['Location'] ?? '',
+      azeta: map['Azeta'] ?? '',
+      speed: map['Speed'] ?? '',
+      speedC: map['SpeedC'] ?? '',
+      baseVolts: map['Base/Volts'] ?? '',
+      volts: map['Volts'] ?? '',
+      notes: map['Notes'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'Machine': machine,
+      'Roll Number': rollNumber,
+      'Status': status,
+      'Sqm': sqm,
+      'Width': width,
+      'EtchedProd.': etchedProd,
+      'FinalProd.': finalProd,
+      'StartTime': startTime,
+      'EndTime': endTime,
+      'Customer': customer,
+      'Order': order,
+      'Location': location,
+      'Azeta': azeta,
+      'Speed': speed,
+      'SpeedC': speedC,
+      'Base/Volts': baseVolts,
+      'Volts': volts,
+      'Notes': notes,
+    };
+  }
 }

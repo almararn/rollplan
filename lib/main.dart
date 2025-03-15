@@ -14,6 +14,10 @@ class MyApp extends StatelessWidget {
       title: 'Factory Schedule App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.grey[300],
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.grey[300],
+        ),
       ),
       home: const HomeScreen(),
     );

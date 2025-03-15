@@ -106,19 +106,44 @@ Map<String, Map<String, dynamic>> processMachineData(
   Map<String, Map<String, dynamic>> machineData = {};
 
   for (var item in rawData) {
-    ProductionRoll roll = ProductionRoll.fromJson(item);
+    ProductionRoll roll = ProductionRoll.fromMap(item);
+    String volts = roll.volts;
+    if (volts.isEmpty) {
+      volts = extractVolts(roll.finalProd);
+      roll = ProductionRoll(
+        machine: roll.machine,
+        rollNumber: roll.rollNumber,
+        status: roll.status,
+        sqm: roll.sqm,
+        width: roll.width,
+        etchedProd: roll.etchedProd,
+        finalProd: roll.finalProd,
+        startTime: roll.startTime,
+        endTime: roll.endTime,
+        customer: roll.customer,
+        order: roll.order,
+        location: roll.location,
+        azeta: roll.azeta,
+        speed: roll.speed,
+        speedC: roll.speedC,
+        baseVolts: roll.baseVolts,
+        volts: volts,
+        notes: roll.notes,
+      );
+    }
+
     if (!machineData.containsKey(roll.machine)) {
       machineData[roll.machine] = {
         'current': null,
-        'planned': <ProductionRoll>[], // Initialize as a list
+        'planned': <ProductionRoll>[],
         'noRollsPlanned': false,
       };
     }
 
     if (roll.status == 'W') {
-      machineData[roll.machine]!['current'] = roll;
+      machineData[roll.machine]!['current'] = roll; // Keep as ProductionRoll
     } else if (roll.status == 'Q') {
-      machineData[roll.machine]!['planned'].add(roll); // Add to the list
+      machineData[roll.machine]!['planned'].add(roll); // Keep as ProductionRoll
     }
   }
 
@@ -136,4 +161,19 @@ Map<String, Map<String, dynamic>> processMachineData(
 bool areRollsSame(ProductionRoll? current, ProductionRoll? planned) {
   if (current == null || planned == null) return false;
   return current.finalProd == planned.finalProd;
+}
+
+String extractVolts(String finalProd) {
+  try {
+    RegExp regex = RegExp(r'(\d+)Vf');
+    Match? match = regex.firstMatch(finalProd);
+    if (match != null) {
+      return match.group(1)!;
+    } else {
+      return '';
+    }
+  } catch (e) {
+    print('Error extracting volts: $e');
+    return '';
+  }
 }

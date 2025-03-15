@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/data_service.dart';
 import '../screens/hall_screen.dart';
+import '../screens/working_changes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,7 +16,7 @@ class HomeScreenState extends State<HomeScreen> {
   bool _dataLoaded = false;
   Map<String, Map<String, dynamic>> _machineData = {};
   final String _dataUrl = 'https://hrollur.com/data/scrape.html';
-//  final String _dataUrl = 'http://svakvm0014.tdk-electronics.biz/planning/index.php?Page=scheduling&SubPage=by-machine';
+  //final String _dataUrl = 'http://svakvm0014.tdk-electronics.biz/planning/index.php?Page=scheduling&SubPage=by-machine';
   String _fetchTime = '';
   String _dataInfo = '';
 
@@ -100,6 +101,7 @@ class HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
+                // ... (HallScreen buttons)
                 ElevatedButton(
                   onPressed: _dataLoaded
                       ? () => Navigator.push(
@@ -145,6 +147,7 @@ class HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
+                // ... (Station HallScreen buttons)
                 ElevatedButton(
                   onPressed: _dataLoaded
                       ? () => Navigator.push(
@@ -189,6 +192,7 @@ class HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
+                // ... (Station HallScreen buttons)
                 ElevatedButton(
                   onPressed: _dataLoaded
                       ? () => Navigator.push(
@@ -229,9 +233,28 @@ class HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _dataLoaded
+                  ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WorkingChangesScreen(),
+                          settings: RouteSettings(
+                              arguments: _machineData), // Pass the data here
+                        ),
+                      );
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _dataLoaded ? Colors.orange : Colors.grey,
+              ),
+              child: Text('Working Changes'),
+            ),
           ],
         ),
       ),
     );
   }
-}
+} // ADDED BUTTON

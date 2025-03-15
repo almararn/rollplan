@@ -76,7 +76,7 @@ class MachineDetailsPage extends StatelessWidget {
               onTap: () => _showInsertChecklistModal(
                   context, rolls[i], currentRoll), // Pass rolls
               onHover: (hovered) => setState(() => isHovered = hovered),
-              overlayColor: MaterialStateProperty.all(Colors.transparent),
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 100),
                 transform: isHovered
