@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/production_roll.dart';
+import 'package:intl/intl.dart';
 
 class WorkingChangesScreen extends StatelessWidget {
   const WorkingChangesScreen({super.key});
@@ -25,6 +26,26 @@ class WorkingChangesScreen extends StatelessWidget {
     return int.tryParse(value);
   }
 
+  String formatTimeDifference(DateTime startTime) {
+    final adjustedStartTime = startTime.subtract(const Duration(hours: 2));
+
+    // final now = DateTime.now();
+    final now = DateTime(2025, 2, 21, 11, 40);
+
+    final difference = adjustedStartTime.difference(now);
+
+    if (difference.isNegative) {
+      return 'INSERTED';
+    } else {
+      final hours = difference.inMinutes / 60;
+      return 'T-${hours.toStringAsFixed(1)}h';
+    }
+  }
+
+  String removeAlphaPrefixRegex(String finalProd) {
+    return finalProd.replaceFirst(RegExp(r'^ALPHA\s*'), '');
+  }
+
   @override
   Widget build(BuildContext context) {
     final Map<String, Map<String, dynamic>> machineData =
@@ -42,18 +63,22 @@ class WorkingChangesScreen extends StatelessWidget {
       try {
         machineNumber = int.parse(machineId.substring(1));
       } catch (e) {
-        return; // Skip if machine number parsing fails
+        return;
       }
 
       List<Map<String, dynamic>> rolls = [];
       if (machineEntry.value['current'] != null) {
-        rolls.add((machineEntry.value['current'] as ProductionRoll).toMap());
+        // Add RollNumber here!
+        final currentRoll = machineEntry.value['current'] as ProductionRoll;
+        rolls.add(currentRoll.toMap()
+          ..['RollNumber'] = currentRoll.rollNumber); // add roll number
       }
       if (machineEntry.value['planned'] != null &&
           machineEntry.value['planned'] is List) {
         for (var roll in (machineEntry.value['planned'] as List)) {
           if (roll is ProductionRoll) {
-            rolls.add(roll.toMap());
+            rolls.add(roll.toMap()
+              ..['RollNumber'] = roll.rollNumber); // add roll number
           }
         }
       }
@@ -66,9 +91,10 @@ class WorkingChangesScreen extends StatelessWidget {
 
       if (wRoll.isNotEmpty && qRolls.isNotEmpty) {
         final qRoll = qRolls.first;
-        final wFinalProd = wRoll['FinalProd.'].toString().toLowerCase();
-        final qFinalProd = qRoll['FinalProd.'].toString().toLowerCase();
-
+        final wFinalProd = removeAlphaPrefixRegex(
+            wRoll['FinalProd.'].toString().toLowerCase());
+        final qFinalProd = removeAlphaPrefixRegex(
+            qRoll['FinalProd.'].toString().toLowerCase());
         if (wFinalProd != qFinalProd) {
           final wVolts = extractVolts(wRoll['FinalProd.'].toString());
           final qVolts = extractVolts(qRoll['FinalProd.'].toString());
@@ -77,18 +103,31 @@ class WorkingChangesScreen extends StatelessWidget {
           final wSpeedInt = tryParseInt(wRoll['SpeedC']?.toString());
           final qSpeedInt = tryParseInt(qRoll['SpeedC']?.toString());
           final voltsDiff = wVoltsInt != null && qVoltsInt != null
-              ? wVoltsInt - qVoltsInt
+              ? qVoltsInt - wVoltsInt
               : null;
           final speedDiff = wSpeedInt != null && qSpeedInt != null
-              ? wSpeedInt - qSpeedInt
+              ? qSpeedInt - wSpeedInt
               : null;
-
+          DateTime? startTime;
+          try {
+            startTime =
+                DateFormat('dd/MM/yyyy HH:mm').parse(qRoll['StartTime']);
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error parsing date: ${qRoll['StartTime']}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            startTime = null;
+          }
           final changeData = {
             'Machine': machineId,
             'WRoll': wRoll,
             'QRoll': qRoll,
             'VoltsDiff': voltsDiff,
             'SpeedDiff': speedDiff,
+            'StartTime': startTime,
           };
 
           if (machineNumber >= 901 && machineNumber <= 932) {
@@ -100,6 +139,19 @@ class WorkingChangesScreen extends StatelessWidget {
       }
     });
 
+    northChanges.sort((a, b) {
+      if (a['StartTime'] == null && b['StartTime'] == null) return 0;
+      if (a['StartTime'] == null) return 1;
+      if (b['StartTime'] == null) return -1;
+      return (a['StartTime'] as DateTime).compareTo(b['StartTime'] as DateTime);
+    });
+
+    southChanges.sort((a, b) {
+      if (a['StartTime'] == null && b['StartTime'] == null) return 0;
+      if (a['StartTime'] == null) return 1;
+      if (b['StartTime'] == null) return -1;
+      return (a['StartTime'] as DateTime).compareTo(b['StartTime'] as DateTime);
+    });
     return Scaffold(
       appBar: AppBar(
         title: const Text('Working Changes'),
@@ -117,9 +169,9 @@ class WorkingChangesScreen extends StatelessWidget {
               color: const Color.fromARGB(50, 33, 149, 243),
               child: Column(
                 children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: const Text('North Side',
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('North Side',
                         style: TextStyle(
                             fontSize: 24, fontWeight: FontWeight.bold)),
                   ),
@@ -132,6 +184,7 @@ class WorkingChangesScreen extends StatelessWidget {
                         final qRoll = change['QRoll'];
                         final voltsDiff = change['VoltsDiff'] as int?;
                         final speedDiff = change['SpeedDiff'] as int?;
+                        final startTime = change['StartTime'] as DateTime?;
 
                         Color circleColor = (voltsDiff != null &&
                                     (voltsDiff > 10 || voltsDiff < -10)) ||
@@ -146,105 +199,135 @@ class WorkingChangesScreen extends StatelessWidget {
                             elevation: 5,
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Row(
+                              child: Stack(
                                 children: [
-                                  Material(
-                                    elevation: 3,
-                                    shape: const CircleBorder(),
-                                    child: CircleAvatar(
-                                      radius: 40,
-                                      backgroundColor: circleColor,
+                                  Row(
+                                    children: [
+                                      Material(
+                                        elevation: 3,
+                                        shape: const CircleBorder(),
+                                        child: CircleAvatar(
+                                          radius: 40,
+                                          backgroundColor: circleColor,
+                                          child: Text(
+                                            change['Machine'],
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 22,
+                                                color: Colors.black),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 15),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            RichText(
+                                              text: TextSpan(
+                                                style:
+                                                    DefaultTextStyle.of(context)
+                                                        .style,
+                                                children: <TextSpan>[
+                                                  const TextSpan(text: 'WIP: '),
+                                                  TextSpan(
+                                                      text:
+                                                          '${wRoll['RollNumber']} - ${removeAlphaPrefixRegex(wRoll['FinalProd.'].toString())} @ ${wRoll['SpeedC']} cm/min',
+                                                      style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                            RichText(
+                                              text: TextSpan(
+                                                style:
+                                                    DefaultTextStyle.of(context)
+                                                        .style,
+                                                children: <TextSpan>[
+                                                  const TextSpan(
+                                                      text: 'NEXT: '),
+                                                  TextSpan(
+                                                      text:
+                                                          '${qRoll['RollNumber']} - ${removeAlphaPrefixRegex(qRoll['FinalProd.'].toString())} @ ${qRoll['SpeedC']} cm/min',
+                                                      style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                            if (voltsDiff != null &&
+                                                    voltsDiff != 0 ||
+                                                speedDiff != null &&
+                                                    speedDiff != 0)
+                                              RichText(
+                                                text: TextSpan(
+                                                  style: DefaultTextStyle.of(
+                                                          context)
+                                                      .style,
+                                                  children: <TextSpan>[
+                                                    if (voltsDiff != null &&
+                                                        voltsDiff != 0)
+                                                      const TextSpan(
+                                                          text:
+                                                              'Volt Change: '),
+                                                    if (voltsDiff != null &&
+                                                        voltsDiff != 0)
+                                                      TextSpan(
+                                                          text:
+                                                              '${voltsDiff > 0 ? '+' : ''}$voltsDiff V',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize:
+                                                                      16)),
+                                                    if (voltsDiff != null &&
+                                                        voltsDiff != 0 &&
+                                                        speedDiff != null &&
+                                                        speedDiff != 0)
+                                                      const TextSpan(
+                                                          text: ', '),
+                                                    if (speedDiff != null &&
+                                                        speedDiff != 0)
+                                                      const TextSpan(
+                                                          text:
+                                                              'Speed Change: '),
+                                                    if (speedDiff != null &&
+                                                        speedDiff != 0)
+                                                      TextSpan(
+                                                          text:
+                                                              '${speedDiff > 0 ? '+' : ''}$speedDiff cm/min',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize:
+                                                                      16)),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (startTime != null)
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
                                       child: Text(
-                                        change['Machine'],
+                                        formatTimeDifference(startTime),
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 22,
-                                            color: Colors.black),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: Colors.green,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 15),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        RichText(
-                                          text: TextSpan(
-                                            style: DefaultTextStyle.of(context)
-                                                .style,
-                                            children: <TextSpan>[
-                                              const TextSpan(
-                                                  text: 'Work in progress: '),
-                                              TextSpan(
-                                                  text:
-                                                      '${wRoll['FinalProd.']} @ ${wRoll['SpeedC']} cm/min',
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ],
-                                          ),
-                                        ),
-                                        RichText(
-                                          text: TextSpan(
-                                            style: DefaultTextStyle.of(context)
-                                                .style,
-                                            children: <TextSpan>[
-                                              const TextSpan(
-                                                  text: 'Next roll in: '),
-                                              TextSpan(
-                                                  text:
-                                                      '${qRoll['FinalProd.']}, @ ${qRoll['SpeedC']} cm/min',
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ],
-                                          ),
-                                        ),
-                                        if (voltsDiff != null &&
-                                                voltsDiff != 0 ||
-                                            speedDiff != null && speedDiff != 0)
-                                          RichText(
-                                            text: TextSpan(
-                                              style:
-                                                  DefaultTextStyle.of(context)
-                                                      .style,
-                                              children: <TextSpan>[
-                                                if (voltsDiff != null &&
-                                                    voltsDiff != 0)
-                                                  const TextSpan(
-                                                      text: 'Volt Change: '),
-                                                if (voltsDiff != null &&
-                                                    voltsDiff != 0)
-                                                  TextSpan(
-                                                      text:
-                                                          '${voltsDiff > 0 ? '+' : ''}$voltsDiff V',
-                                                      style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold)),
-                                                if (voltsDiff != null &&
-                                                    voltsDiff != 0 &&
-                                                    speedDiff != null &&
-                                                    speedDiff != 0)
-                                                  const TextSpan(text: ', '),
-                                                if (speedDiff != null &&
-                                                    speedDiff != 0)
-                                                  const TextSpan(
-                                                      text: 'Speed Change: '),
-                                                if (speedDiff != null &&
-                                                    speedDiff != 0)
-                                                  TextSpan(
-                                                      text:
-                                                          '${speedDiff > 0 ? '+' : ''}$speedDiff cm/min',
-                                                      style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold)),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -262,9 +345,9 @@ class WorkingChangesScreen extends StatelessWidget {
               color: const Color.fromARGB(48, 249, 118, 3),
               child: Column(
                 children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: const Text('South Side',
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('South Side',
                         style: TextStyle(
                             fontSize: 24, fontWeight: FontWeight.bold)),
                   ),
@@ -277,6 +360,7 @@ class WorkingChangesScreen extends StatelessWidget {
                         final qRoll = change['QRoll'];
                         final voltsDiff = change['VoltsDiff'] as int?;
                         final speedDiff = change['SpeedDiff'] as int?;
+                        final startTime = change['StartTime'] as DateTime?;
 
                         Color circleColor = (voltsDiff != null &&
                                     (voltsDiff > 10 || voltsDiff < -10)) ||
@@ -291,105 +375,135 @@ class WorkingChangesScreen extends StatelessWidget {
                             elevation: 5,
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Row(
+                              child: Stack(
                                 children: [
-                                  Material(
-                                    elevation: 3,
-                                    shape: const CircleBorder(),
-                                    child: CircleAvatar(
-                                      radius: 40,
-                                      backgroundColor: circleColor,
+                                  Row(
+                                    children: [
+                                      Material(
+                                        elevation: 3,
+                                        shape: const CircleBorder(),
+                                        child: CircleAvatar(
+                                          radius: 40,
+                                          backgroundColor: circleColor,
+                                          child: Text(
+                                            change['Machine'],
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 22,
+                                                color: Colors.black),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 15),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            RichText(
+                                              text: TextSpan(
+                                                style:
+                                                    DefaultTextStyle.of(context)
+                                                        .style,
+                                                children: <TextSpan>[
+                                                  const TextSpan(text: 'WIP: '),
+                                                  TextSpan(
+                                                      text:
+                                                          '${wRoll['RollNumber']} - ${removeAlphaPrefixRegex(wRoll['FinalProd.'].toString())} @ ${wRoll['SpeedC']} cm/min',
+                                                      style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                            RichText(
+                                              text: TextSpan(
+                                                style:
+                                                    DefaultTextStyle.of(context)
+                                                        .style,
+                                                children: <TextSpan>[
+                                                  const TextSpan(
+                                                      text: 'NEXT: '),
+                                                  TextSpan(
+                                                      text:
+                                                          '${qRoll['RollNumber']} - ${removeAlphaPrefixRegex(qRoll['FinalProd.'].toString())} @ ${qRoll['SpeedC']} cm/min',
+                                                      style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                            if (voltsDiff != null &&
+                                                    voltsDiff != 0 ||
+                                                speedDiff != null &&
+                                                    speedDiff != 0)
+                                              RichText(
+                                                text: TextSpan(
+                                                  style: DefaultTextStyle.of(
+                                                          context)
+                                                      .style,
+                                                  children: <TextSpan>[
+                                                    if (voltsDiff != null &&
+                                                        voltsDiff != 0)
+                                                      const TextSpan(
+                                                          text:
+                                                              'Volt Change: '),
+                                                    if (voltsDiff != null &&
+                                                        voltsDiff != 0)
+                                                      TextSpan(
+                                                          text:
+                                                              '${voltsDiff > 0 ? '+' : ''}$voltsDiff V',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize:
+                                                                      16)),
+                                                    if (voltsDiff != null &&
+                                                        voltsDiff != 0 &&
+                                                        speedDiff != null &&
+                                                        speedDiff != 0)
+                                                      const TextSpan(
+                                                          text: ', '),
+                                                    if (speedDiff != null &&
+                                                        speedDiff != 0)
+                                                      const TextSpan(
+                                                          text:
+                                                              'Speed Change: '),
+                                                    if (speedDiff != null &&
+                                                        speedDiff != 0)
+                                                      TextSpan(
+                                                          text:
+                                                              '${speedDiff > 0 ? '+' : ''}$speedDiff cm/min',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize:
+                                                                      16)),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (startTime != null)
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
                                       child: Text(
-                                        change['Machine'],
+                                        formatTimeDifference(startTime),
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 22,
-                                            color: Colors.black),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: Colors.green,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 15),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        RichText(
-                                          text: TextSpan(
-                                            style: DefaultTextStyle.of(context)
-                                                .style,
-                                            children: <TextSpan>[
-                                              const TextSpan(
-                                                  text: 'Work in progress: '),
-                                              TextSpan(
-                                                  text:
-                                                      '${wRoll['FinalProd.']}, @ ${wRoll['SpeedC']} cm/min',
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ],
-                                          ),
-                                        ),
-                                        RichText(
-                                          text: TextSpan(
-                                            style: DefaultTextStyle.of(context)
-                                                .style,
-                                            children: <TextSpan>[
-                                              const TextSpan(
-                                                  text: 'Next roll in: '),
-                                              TextSpan(
-                                                  text:
-                                                      '${qRoll['FinalProd.']}, @ ${qRoll['SpeedC']} cm/min',
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ],
-                                          ),
-                                        ),
-                                        if (voltsDiff != null &&
-                                                voltsDiff != 0 ||
-                                            speedDiff != null && speedDiff != 0)
-                                          RichText(
-                                            text: TextSpan(
-                                              style:
-                                                  DefaultTextStyle.of(context)
-                                                      .style,
-                                              children: <TextSpan>[
-                                                if (voltsDiff != null &&
-                                                    voltsDiff != 0)
-                                                  const TextSpan(
-                                                      text: 'Volt Change: '),
-                                                if (voltsDiff != null &&
-                                                    voltsDiff != 0)
-                                                  TextSpan(
-                                                      text:
-                                                          '${voltsDiff > 0 ? '+' : ''}$voltsDiff V',
-                                                      style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold)),
-                                                if (voltsDiff != null &&
-                                                    voltsDiff != 0 &&
-                                                    speedDiff != null &&
-                                                    speedDiff != 0)
-                                                  const TextSpan(text: ', '),
-                                                if (speedDiff != null &&
-                                                    speedDiff != 0)
-                                                  const TextSpan(
-                                                      text: 'Speed Change: '),
-                                                if (speedDiff != null &&
-                                                    speedDiff != 0)
-                                                  TextSpan(
-                                                      text:
-                                                          '${speedDiff > 0 ? '+' : ''}$speedDiff cm/min',
-                                                      style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold)),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
